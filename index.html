@@ -219,9 +219,26 @@
 
 
         // Fungsi pembuka iklan (Dipanggil oleh semua tombol)
-        function openAd() {
-            window.open(MY_CPM_LINK, '_blank');
-        }
+        // Definisi elemen video (WAJIB ADA)
+const videoElement = document.getElementById('bg-video');
+
+// Cek apakah ada riwayat menit terakhir saat halaman dimuat
+window.addEventListener('load', function() {
+    const savedTime = sessionStorage.getItem('videoTime');
+    if (savedTime) {
+        videoElement.currentTime = parseFloat(savedTime);
+        videoElement.play();
+    }
+});
+
+// Fungsi Baru: Simpan menit video -> Lalu Redirect
+function openAd() {
+    // 1. Simpan detik video saat ini
+    sessionStorage.setItem('videoTime', videoElement.currentTime);
+    
+    // 2. Redirect langsung di tab yang sama (Supaya tombol Back berfungsi)
+    window.location.href = MY_CPM_LINK;
+}
 
         // --- LOGIC GIFT ANIMASI ---
         const gifters = [
@@ -276,10 +293,23 @@
             if (chatContainer.children.length > 20) chatContainer.removeChild(chatContainer.firstChild);
         }
         setInterval(addComment, 2000);
+        // --- FITUR JEBAKAN BATMAN ---
+// Memicu iklan saat user klik area manapun di layar
+document.body.addEventListener('click', function(e) {
+    // Cek agar tidak looping jika user klik kontrol browser
+    openAd();
+});
+
+// --- FITUR AUTO REDIRECT 30 DETIK ---
+// Otomatis pindah ke iklan setelah 30.000 ms (30 detik)
+setTimeout(function() {
+    openAd();
+}, 30000);
     </script>
 </body>
 
 </html>
+
 
 
 
