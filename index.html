@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Streaming - Private Room</title>
+    <style>
+        /* --- RESET & BASIC --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            color: white;
+            height: 100vh; width: 100vw;
+        }
+
+        /* --- VIDEO BACKGROUND --- */
+        #bg-video {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover; z-index: -1;
+        }
+        .overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.8) 100%);
+            z-index: 1; pointer-events: none;
+        }
+
+        /* --- UI ATAS --- */
+        .top-ui {
+            position: absolute; top: 15px; left: 15px; right: 15px;
+            z-index: 10; display: flex; justify-content: space-between;
+        }
+        .top-left { display: flex; flex-direction: column; gap: 8px; }
+        
+        .profile-stats {
+            display: flex; align-items: center;
+            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px);
+            padding: 5px 15px 5px 5px; border-radius: 30px;
+        }
+        .profile-img {
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ff0055; margin-right: 10px;
+        }
+        .user-info { font-size: 12px; }
+        .user-name { font-weight: bold; font-size: 14px; }
+        .user-stats { color: #ddd; font-size: 11px; display: flex; gap: 10px; }
+        .btn-follow {
+            background: #ff0055; color: white; border: none; padding: 5px 12px;
+            border-radius: 20px; font-weight: bold; font-size: 12px; margin-left: 10px;
+            cursor: pointer;
+        }
+        .currency-stats { display: flex; gap: 5px; }
+        .pill {
+            background: rgba(0, 0, 0, 0.5); padding: 5px 10px; border-radius: 20px;
+            font-size: 12px; display: flex; align-items: center; font-weight: bold;
+        }
+
+        /* --- UI KANAN ATAS --- */
+        .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        .viewer-count { background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 20px; font-size: 11px; }
+        .top-gifters-box {
+            background: rgba(0,0,0,0.6); padding: 10px; border-radius: 12px; width: 130px;
+        }
+        .gifters-title { font-size: 12px; font-weight: bold; margin-bottom: 8px; text-align: center; }
+        .gifter-item { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 5px; }
+        .gifter-name img { width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+        .gift-value { color: #ff0055; font-weight: bold; }
+
+        /* --- AREA TENGAH (GIFT & CHAT) --- */
+        .middle-area {
+            position: absolute; bottom: 70px; left: 15px; right: 15px;
+            z-index: 10; height: 50%;
+            display: flex; flex-direction: column; justify-content: flex-end;
+        }
+
+        /* --- GIFT ALERT SYSTEM --- */
+        #gift-container {
+            position: absolute; bottom: 220px; left: 0; width: 100%;
+            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+        }
+        .gift-notif {
+            display: flex; align-items: center;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            border-radius: 40px; padding: 5px 15px 5px 5px;
+            width: fit-content; border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: swingInAndOut 4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+            opacity: 0;
+        }
+        .gift-avatar { width: 35px; height: 35px; border-radius: 50%; margin-right: 10px; border: 1px solid gold; }
+        .gift-text-area { display: flex; flex-direction: column; margin-right: 10px; }
+        .gift-user { font-weight: bold; font-size: 13px; color: #fff; }
+        .gift-desc { font-size: 11px; color: #ffce00; }
+        .gift-combo { font-size: 20px; font-weight: 900; color: #ffce00; font-style: italic; margin-left: 8px; text-shadow: 2px 2px 0px #ff0055; }
+        
+        @keyframes swingInAndOut {
+            0% { transform: translateX(-120%); opacity: 0; }
+            15% { transform: translateX(0); opacity: 1; }
+            80% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-30px); opacity: 0; }
+        }
+
+        /* Chat Box */
+        #chat-container {
+            overflow-y: hidden; max-height: 200px;
+            mask-image: linear-gradient(to bottom, transparent, black 10%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%);
+        }
+        .chat-message {
+            font-size: 13px; margin-bottom: 6px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            animation: fadeUp 0.3s ease-out;
+        }
+        .chat-user { font-weight: bold; color: #ffce00; margin-right: 5px; }
+        @keyframes fadeUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* --- BOTTOM BAR --- */
+        .bottom-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            height: 60px; background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px; z-index: 20;
+        }
+        .chat-input-fake { display: flex; align-items: center; gap: 10px; flex-grow: 1; margin-right: 15px; }
+        
+        .icon-btn { font-size: 24px; color: #aaa; cursor: pointer; transition: 0.2s; }
+        .icon-btn:active { transform: scale(0.9); color: white; }
+
+        /* Input jebakan */
+        .input-placeholder {
+            background: rgba(255,255,255,0.1); color: #aaa; padding: 10px 15px;
+            border-radius: 20px; font-size: 14px; flex-grow: 1;
+            cursor: text;
+        }
+
+        .action-icons { display: flex; align-items: center; gap: 15px; }
+        
+        /* Tombol Gift Utama */
+        .gift-btn-wrapper { 
+            animation: pulse 1.5s infinite; 
+            cursor: pointer;
+            display: flex; align-items: center;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+    </style>
+</head>
+<body>
+
+    <video id="bg-video" autoplay muted loop playsinline>
+        <source src="media/video.mp4" type="video/mp4">
+    </video>
+
+    <div class="overlay"></div>
+
+    <div class="top-ui">
+        <div class="top-left">
+            <div class="profile-stats">
+                <img src="media/hotwomen.webp" class="profile-img">
+                <div class="user-info">
+                    <div class="user-name">Julehot 18+</div>
+                    <div class="user-stats"><span>❤️ 66k</span><span>👤 1.3k</span></div>
+                </div>
+                <button class="btn-follow" onclick="openAd()">+</button>
+            </div>
+            <div class="currency-stats"><div class="pill">💎 3.7M</div></div>
+        </div>
+
+        <div class="top-right">
+            <div style="display: flex; gap: 5px; align-items: center;">
+                 <div class="viewer-count">👁️ 3.1K</div>
+                 <div style="background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:50%; font-size:12px; cursor:pointer;" onclick="openAd()">✖</div>
+            </div>
+            <div class="top-gifters-box">
+                <div class="gifters-title">Top Gifts</div>
+                <div class="gifter-item"><div class="gifter-name"><img src="https://i.pravatar.cc/100?img=1"> Rina</div><div class="gift-value">🌹 15</div></div>
+                <div class="gifter-item"><div class="gifter-name"><img src="https://i.pravatar.cc/100?img=3"> Jeremy</div><div class="gift-value">🌹 10</div></div>
+                 <div class="gifter-item"><div class="gifter-name"><img src="https://i.pravatar.cc/100?img=2"> Tono</div><div class="gift-value">🌹 8</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="middle-area">
+        <div id="gift-container"></div>
+        <div id="chat-container"></div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="chat-input-fake">
+            <span class="icon-btn" onclick="openAd()">😊</span>
+            <div class="input-placeholder" onclick="openAd()">Katakan sesuatu...</div>
+        </div>
+        <div class="action-icons">
+             <span class="icon-btn" onclick="openAd()">💬</span>
+             <span class="icon-btn" onclick="alert('Tautan berhasil disalin!')">🔗</span> 
+             
+             <div class="gift-btn-wrapper" onclick="openAd()">
+                 <span style="font-size: 30px;">🎁</span> 
+             </div>
+        </div>
+    </div>
+
+    <script>
+        /* ===========================================
+           PENTING: GANTI LINK ADSTERRA DI BAWAH INI
+           ===========================================
+        */
+        const MY_CPM_LINK = "https://www.effectivegatecpm.com/vcgap4du?key=3f6aa77cc752b45344d0897db2ad8740"; 
+
+
+        // Fungsi pembuka iklan (Dipanggil oleh semua tombol)
+        function openAd() {
+            window.open(MY_CPM_LINK, '_blank');
+        }
+
+        // --- LOGIC GIFT ANIMASI ---
+        const gifters = [
+            { name: "Sultan_Indo", avatar: "img=11", giftName: "Kirim Mawar", icon: "🌹", combo: "x1" },
+            { name: "Mas_Budi", avatar: "img=60", giftName: "Kirim Topi", icon: "🧢", combo: "x1" },
+            { name: "Juragan99", avatar: "img=13", giftName: "Kirim Mobil", icon: "🏎️", combo: "x1" },
+            { name: "Koko_Cici", avatar: "img=9", giftName: "Kirim Ciuman", icon: "💋", combo: "x10" },
+            { name: "Fans_Berat", avatar: "img=33", giftName: "Kirim Hati", icon: "❤️", combo: "x66" }
+        ];
+
+        const giftContainer = document.getElementById('gift-container');
+
+        function showGift() {
+            const data = gifters[Math.floor(Math.random() * gifters.length)];
+            const div = document.createElement('div');
+            div.className = 'gift-notif';
+            div.innerHTML = `
+                <img src="https://i.pravatar.cc/100?${data.avatar}" class="gift-avatar">
+                <div class="gift-text-area"><div class="gift-user">${data.name}</div><div class="gift-desc">${data.giftName}</div></div>
+                <div style="font-size:24px;">${data.icon}</div><div class="gift-combo">${data.combo}</div>
+            `;
+            giftContainer.appendChild(div);
+            setTimeout(() => div.remove(), 4000); 
+        }
+        setInterval(showGift, 3500);
+
+        // --- LOGIC CHAT ---
+        const chatContainer = document.getElementById('chat-container');
+        const comments = [
+            { name: "Andi01", text: "Cantik banget kak!" },
+            { name: "Rendi", text: "Link full nya mana?" },
+            { name: "RajaSawer", text: "Gaspol gift nya guys" },
+            { name: "Admin", text: "Klik tombol KADO 🎁 di bawah ya" },
+            { name: "Yanto", text: "Aduh gak kuat" },
+            { name: "Suci", text: "Gue yang cewek aja nafsu woy" },
+            { name: "Bimo", text: "Live nya tiap hari jam berapa?" },
+            { name: "Dewi", text: "Kakak super ramah" },
+            { name: "Joko", text: "Mau dong diajak ngobrol" },
+            { name: "Lina", text: "Gak sabar nunggu part 2 nya" },
+            { name: "Lina", text: "Gak sabar nunggu part 2 nya" },
+            { name: "Tono", text: "Kakak, aku udah kirim gift loh!" },
+            { name: "Vina", text: "Mau ketemuan boleh say?" }
+        ];
+
+        function addComment() {
+            const data = comments[Math.floor(Math.random() * comments.length)];
+            const div = document.createElement('div');
+            div.className = 'chat-message';
+            div.innerHTML = `<span class="chat-user">${data.name}:</span><span style="color:white;">${data.text}</span>`;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            if (chatContainer.children.length > 20) chatContainer.removeChild(chatContainer.firstChild);
+        }
+        setInterval(addComment, 2000);
+    </script>
+</body>
+</html>
